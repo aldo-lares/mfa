@@ -23,4 +23,11 @@ class LdapConfigTest {
                 () -> new LdapConfig("ldap://localhost:389", "dc=example,dc=org", "(|(uid={0})(mail={0}))",
                         null, null, "com.sun.jndi.ldap.LdapCtxFactory").validate());
     }
+
+    @Test
+    void rejectsBindDnWithoutBindPassword() {
+        assertThrows(AuthenticationException.class,
+                () -> new LdapConfig("ldap://localhost:389", "dc=example,dc=org", "(uid={0})",
+                        "cn=service,dc=example,dc=org", null, "com.sun.jndi.ldap.LdapCtxFactory").validate());
+    }
 }

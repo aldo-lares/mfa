@@ -30,6 +30,9 @@ record LdapConfig(
         if (userSearchFilter == null || userSearchFilter.isBlank() || placeholderCount(userSearchFilter) != 1) {
             throw new AuthenticationException("LDAP user search filter must contain exactly one {0}");
         }
+        if (bindDn != null && !bindDn.isBlank() && (bindPassword == null || bindPassword.isBlank())) {
+            throw new AuthenticationException("LDAP bind password must be configured when LDAP bind DN is configured");
+        }
         if (contextFactory == null || contextFactory.isBlank()) {
             throw new AuthenticationException("LDAP context factory must be configured");
         }
