@@ -81,7 +81,7 @@ public class LdapUserAuthenticator implements UserAuthenticator {
         if (config.bindDn() != null && !config.bindDn().isBlank()) {
             environment.put(Context.SECURITY_AUTHENTICATION, "simple");
             environment.put(Context.SECURITY_PRINCIPAL, config.bindDn());
-            environment.put(Context.SECURITY_CREDENTIALS, config.bindPassword() == null ? "" : config.bindPassword());
+            environment.put(Context.SECURITY_CREDENTIALS, config.bindPassword());
         }
         return environment;
     }
@@ -99,6 +99,7 @@ public class LdapUserAuthenticator implements UserAuthenticator {
         return template.substring(0, placeholder) + escapeFilterValue(user) + template.substring(placeholder + 3);
     }
 
+    // Package-visible for focused LDAP filter escaping tests.
     static String escapeFilterValue(String value) {
         StringBuilder escaped = new StringBuilder(value.length());
         for (int i = 0; i < value.length(); i++) {
