@@ -22,6 +22,8 @@ Configure the LDAP connection with environment variables or matching Java system
 | `LDAP_CONTEXT_FACTORY` | `ldap.contextFactory` | Optional JNDI context factory. Defaults to `com.sun.jndi.ldap.LdapCtxFactory` |
 | `SERVICE_ADDRESS` | `service.address` | SOAP endpoint address. Defaults to `http://0.0.0.0:8080/auth` |
 
+The default HTTP service address is intended for local development. Production deployments must protect SOAP credentials with transport-level security, such as HTTPS/TLS termination for the SOAP endpoint and `ldaps://` or an equivalent protected connection to LDAP.
+
 Start the SOAP endpoint:
 
 ```sh

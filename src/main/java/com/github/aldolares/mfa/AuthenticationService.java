@@ -21,7 +21,7 @@ public class AuthenticationService {
     @WebMethod
     public boolean authenticate(
             @WebParam(name = "user") String user,
-            @WebParam(name = "password") String password) throws AuthenticationException {
+            @WebParam(name = "password", mode = WebParam.Mode.IN) String password) throws AuthenticationException {
         return authenticator.authenticate(user, password);
     }
 }
