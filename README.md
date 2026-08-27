@@ -19,6 +19,7 @@ Configure the LDAP connection with environment variables or matching Java system
 | `LDAP_USER_SEARCH_FILTER` | `ldap.userSearchFilter` | LDAP search filter containing `{0}` for the user value. Defaults to `(uid={0})` |
 | `LDAP_BIND_DN` | `ldap.bindDn` | Optional service account DN for searching |
 | `LDAP_BIND_PASSWORD` | `ldap.bindPassword` | Optional service account password for searching |
+| `LDAP_CONTEXT_FACTORY` | `ldap.contextFactory` | Optional JNDI context factory. Defaults to `com.sun.jndi.ldap.LdapCtxFactory` |
 | `SERVICE_ADDRESS` | `service.address` | SOAP endpoint address. Defaults to `http://0.0.0.0:8080/auth` |
 
 Start the SOAP endpoint:
@@ -27,4 +28,4 @@ Start the SOAP endpoint:
 mvn compile exec:java -Dexec.mainClass=com.github.aldolares.mfa.AuthenticationServiceApplication
 ```
 
-The WSDL is available at `http://localhost:8080/auth?wsdl`. The SOAP operation is `authenticate(user, password)` and returns `true` only when the user exists in LDAP and the supplied password can bind as that user.
+The WSDL is available at `http://localhost:8080/auth?wsdl`. The SOAP operation is `authenticate(user, password)` and returns `true` only when the user exists in LDAP and the supplied password can bind as that user. Invalid users or passwords return `false`; LDAP configuration or infrastructure failures are returned as SOAP faults.

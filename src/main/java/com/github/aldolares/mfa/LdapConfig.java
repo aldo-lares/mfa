@@ -5,8 +5,10 @@ record LdapConfig(
         String baseDn,
         String userSearchFilter,
         String bindDn,
-        String bindPassword) {
+        String bindPassword,
+        String contextFactory) {
     private static final String DEFAULT_USER_SEARCH_FILTER = "(uid={0})";
+    private static final String DEFAULT_CONTEXT_FACTORY = "com.sun.jndi.ldap.LdapCtxFactory";
 
     static LdapConfig fromEnvironment() {
         return new LdapConfig(
@@ -14,7 +16,8 @@ record LdapConfig(
                 Settings.setting("LDAP_BASE_DN", "ldap.baseDn", null),
                 Settings.setting("LDAP_USER_SEARCH_FILTER", "ldap.userSearchFilter", DEFAULT_USER_SEARCH_FILTER),
                 Settings.setting("LDAP_BIND_DN", "ldap.bindDn", null),
-                Settings.setting("LDAP_BIND_PASSWORD", "ldap.bindPassword", null));
+                Settings.setting("LDAP_BIND_PASSWORD", "ldap.bindPassword", null),
+                Settings.setting("LDAP_CONTEXT_FACTORY", "ldap.contextFactory", DEFAULT_CONTEXT_FACTORY));
     }
 
     void validate() throws AuthenticationException {
@@ -26,6 +29,9 @@ record LdapConfig(
         }
         if (userSearchFilter == null || userSearchFilter.isBlank() || placeholderCount(userSearchFilter) != 1) {
             throw new AuthenticationException("LDAP user search filter must contain exactly one {0}");
+        }
+        if (contextFactory == null || contextFactory.isBlank()) {
+            throw new AuthenticationException("LDAP context factory must be configured");
         }
     }
 

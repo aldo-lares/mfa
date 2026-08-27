@@ -21,11 +21,7 @@ public class AuthenticationService {
     @WebMethod
     public boolean authenticate(
             @WebParam(name = "user") String user,
-            @WebParam(name = "password") String password) {
-        try {
-            return authenticator.authenticate(user, password);
-        } catch (AuthenticationException e) {
-            return false;
-        }
+            @WebParam(name = "password") String password) throws AuthenticationException {
+        return authenticator.authenticate(user, password);
     }
 }

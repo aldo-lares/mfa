@@ -44,7 +44,11 @@ public class LdapUserAuthenticator implements UserAuthenticator {
             if (!results.hasMore()) {
                 return null;
             }
-            return results.next().getNameInNamespace();
+            SearchResult result = results.next();
+            if (results.hasMore()) {
+                throw new AuthenticationException("LDAP search returned multiple users for the supplied user");
+            }
+            return result.getNameInNamespace();
         } catch (NamingException e) {
             throw new AuthenticationException("Unable to search LDAP directory", e);
         } finally {
@@ -84,7 +88,7 @@ public class LdapUserAuthenticator implements UserAuthenticator {
 
     private Hashtable<String, String> baseEnvironment() {
         Hashtable<String, String> environment = new Hashtable<>();
-        environment.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+        environment.put(Context.INITIAL_CONTEXT_FACTORY, config.contextFactory());
         environment.put(Context.PROVIDER_URL, config.url());
         return environment;
     }

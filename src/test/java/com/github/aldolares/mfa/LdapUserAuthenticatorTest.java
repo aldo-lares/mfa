@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class LdapUserAuthenticatorTest {
     @Test
     void blankCredentialsAreRejectedWithoutDirectoryLookup() throws AuthenticationException {
-        LdapUserAuthenticator authenticator = new LdapUserAuthenticator(new LdapConfig(null, null, null, null, null));
+        LdapUserAuthenticator authenticator = new LdapUserAuthenticator(new LdapConfig(null, null, null, null, null, null));
 
         assertFalse(authenticator.authenticate("", "secret"));
         assertFalse(authenticator.authenticate("alice", ""));

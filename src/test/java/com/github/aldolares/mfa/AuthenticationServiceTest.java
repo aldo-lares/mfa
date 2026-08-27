@@ -3,29 +3,30 @@ package com.github.aldolares.mfa;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuthenticationServiceTest {
     @Test
-    void returnsTrueWhenAuthenticatorAcceptsCredentials() {
+    void returnsTrueWhenAuthenticatorAcceptsCredentials() throws AuthenticationException {
         AuthenticationService service = new AuthenticationService((user, password) -> true);
 
         assertTrue(service.authenticate("alice", "secret"));
     }
 
     @Test
-    void returnsFalseWhenAuthenticatorRejectsCredentials() {
+    void returnsFalseWhenAuthenticatorRejectsCredentials() throws AuthenticationException {
         AuthenticationService service = new AuthenticationService((user, password) -> false);
 
         assertFalse(service.authenticate("alice", "wrong"));
     }
 
     @Test
-    void returnsFalseWhenAuthenticatorCannotCheckCredentials() {
+    void exposesAuthenticatorErrorsAsSoapFaults() {
         AuthenticationService service = new AuthenticationService((user, password) -> {
             throw new AuthenticationException("LDAP unavailable");
         });
 
-        assertFalse(service.authenticate("alice", "secret"));
+        assertThrows(AuthenticationException.class, () -> service.authenticate("alice", "secret"));
     }
 }
