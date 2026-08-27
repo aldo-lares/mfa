@@ -1,0 +1,143 @@
+package com.github.aldolares.mfa;
+
+import javax.naming.Context;
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.directory.DirContext;
+import javax.naming.directory.InitialDirContext;
+import javax.naming.directory.SearchControls;
+import javax.naming.directory.SearchResult;
+import java.util.Hashtable;
+
+public class LdapUserAuthenticator implements UserAuthenticator {
+    private final LdapConfig config;
+
+    public LdapUserAuthenticator(LdapConfig config) {
+        this.config = config;
+    }
+
+    @Override
+    public boolean authenticate(String user, String password) throws AuthenticationException {
+        if (user == null || user.isBlank() || password == null || password.isBlank()) {
+            return false;
+        }
+
+        config.validate();
+        String userDn = findUserDn(user);
+        if (userDn == null) {
+            return false;
+        }
+        return bindAsUser(userDn, password);
+    }
+
+    private String findUserDn(String user) throws AuthenticationException {
+        SearchControls controls = new SearchControls();
+        controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
+        controls.setReturningAttributes(new String[0]);
+
+        String filter = userSearchFilter(user);
+        DirContext context = null;
+        NamingEnumeration<SearchResult> results = null;
+        try {
+            context = new InitialDirContext(searchEnvironment());
+            results = context.search(config.baseDn(), filter, controls);
+            if (!results.hasMore()) {
+                return null;
+            }
+            SearchResult result = results.next();
+            if (results.hasMore()) {
+                throw new AuthenticationException("LDAP search returned multiple users for the supplied user");
+            }
+            return result.getNameInNamespace();
+        } catch (NamingException e) {
+            throw new AuthenticationException("Unable to search LDAP directory", e);
+        } finally {
+            close(results);
+            close(context);
+        }
+    }
+
+    private boolean bindAsUser(String userDn, String password) throws AuthenticationException {
+        Hashtable<String, String> environment = baseEnvironment();
+        environment.put(Context.SECURITY_AUTHENTICATION, "simple");
+        environment.put(Context.SECURITY_PRINCIPAL, userDn);
+        environment.put(Context.SECURITY_CREDENTIALS, password);
+
+        DirContext context = null;
+        try {
+            context = new InitialDirContext(environment);
+            return true;
+        } catch (javax.naming.AuthenticationException e) {
+            return false;
+        } catch (NamingException e) {
+            throw new AuthenticationException("Unable to bind to LDAP directory", e);
+        } finally {
+            close(context);
+        }
+    }
+
+    private Hashtable<String, String> searchEnvironment() {
+        Hashtable<String, String> environment = baseEnvironment();
+        if (config.bindDn() != null && !config.bindDn().isBlank()) {
+            environment.put(Context.SECURITY_AUTHENTICATION, "simple");
+            environment.put(Context.SECURITY_PRINCIPAL, config.bindDn());
+            environment.put(Context.SECURITY_CREDENTIALS, config.bindPassword());
+        }
+        return environment;
+    }
+
+    private Hashtable<String, String> baseEnvironment() {
+        Hashtable<String, String> environment = new Hashtable<>();
+        environment.put(Context.INITIAL_CONTEXT_FACTORY, config.contextFactory());
+        environment.put(Context.PROVIDER_URL, config.url());
+        return environment;
+    }
+
+    private String userSearchFilter(String user) throws AuthenticationException {
+        String template = config.userSearchFilter();
+        if (template == null) {
+            throw new AuthenticationException("LDAP user search filter must contain exactly one {0}");
+        }
+        int placeholder = template.indexOf("{0}");
+        if (placeholder < 0 || template.indexOf("{0}", placeholder + 3) >= 0) {
+            throw new AuthenticationException("LDAP user search filter must contain exactly one {0}");
+        }
+        return template.substring(0, placeholder) + escapeFilterValue(user) + template.substring(placeholder + 3);
+    }
+
+    // Package-visible for focused LDAP filter escaping tests.
+    static String escapeFilterValue(String value) {
+        StringBuilder escaped = new StringBuilder(value.length());
+        value.codePoints().forEach(codePoint -> {
+            switch (codePoint) {
+                case '\\' -> escaped.append("\\5c");
+                case '*' -> escaped.append("\\2a");
+                case '(' -> escaped.append("\\28");
+                case ')' -> escaped.append("\\29");
+                case 0 -> escaped.append("\\00");
+                default -> escaped.appendCodePoint(codePoint);
+            }
+        });
+        return escaped.toString();
+    }
+
+    private static void close(DirContext context) {
+        if (context != null) {
+            try {
+                context.close();
+            } catch (NamingException e) {
+                // Nothing useful can be returned to the SOAP caller from cleanup failures.
+            }
+        }
+    }
+
+    private static void close(NamingEnumeration<SearchResult> results) {
+        if (results != null) {
+            try {
+                results.close();
+            } catch (NamingException e) {
+                // Nothing useful can be returned to the SOAP caller from cleanup failures.
+            }
+        }
+    }
+}
