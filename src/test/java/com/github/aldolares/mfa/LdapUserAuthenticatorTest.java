@@ -20,4 +20,9 @@ class LdapUserAuthenticatorTest {
     void escapesLdapSearchFilterMetacharacters() {
         assertEquals("alice\\2a\\28admin\\29\\5c\\00", LdapUserAuthenticator.escapeFilterValue("alice*(admin)\\\u0000"));
     }
+
+    @Test
+    void preservesSupplementaryUnicodeCharactersWhenEscapingFilterValues() {
+        assertEquals("alice😀", LdapUserAuthenticator.escapeFilterValue("alice😀"));
+    }
 }

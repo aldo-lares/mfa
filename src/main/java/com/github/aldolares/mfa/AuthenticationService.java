@@ -10,8 +10,8 @@ import java.util.Objects;
 public class AuthenticationService {
     private final UserAuthenticator authenticator;
 
-    public AuthenticationService() {
-        this(new LdapUserAuthenticator(LdapConfig.fromEnvironment()));
+    public AuthenticationService() throws AuthenticationException {
+        this(defaultAuthenticator());
     }
 
     AuthenticationService(UserAuthenticator authenticator) {
@@ -23,5 +23,11 @@ public class AuthenticationService {
             @WebParam(name = "user") String user,
             @WebParam(name = "password", mode = WebParam.Mode.IN) String password) throws AuthenticationException {
         return authenticator.authenticate(user, password);
+    }
+
+    private static UserAuthenticator defaultAuthenticator() throws AuthenticationException {
+        LdapConfig config = LdapConfig.fromEnvironment();
+        config.validate();
+        return new LdapUserAuthenticator(config);
     }
 }

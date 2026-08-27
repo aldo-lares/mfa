@@ -108,17 +108,16 @@ public class LdapUserAuthenticator implements UserAuthenticator {
     // Package-visible for focused LDAP filter escaping tests.
     static String escapeFilterValue(String value) {
         StringBuilder escaped = new StringBuilder(value.length());
-        for (int i = 0; i < value.length(); i++) {
-            char character = value.charAt(i);
-            switch (character) {
+        value.codePoints().forEach(codePoint -> {
+            switch (codePoint) {
                 case '\\' -> escaped.append("\\5c");
                 case '*' -> escaped.append("\\2a");
                 case '(' -> escaped.append("\\28");
                 case ')' -> escaped.append("\\29");
-                case '\u0000' -> escaped.append("\\00");
-                default -> escaped.append(character);
+                case 0 -> escaped.append("\\00");
+                default -> escaped.appendCodePoint(codePoint);
             }
-        }
+        });
         return escaped.toString();
     }
 
