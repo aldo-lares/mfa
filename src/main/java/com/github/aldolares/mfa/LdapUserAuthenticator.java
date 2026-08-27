@@ -35,7 +35,7 @@ public class LdapUserAuthenticator implements UserAuthenticator {
         controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
         controls.setReturningAttributes(new String[0]);
 
-        String filter = config.userSearchFilter().replace("{0}", escapeFilterValue(user));
+        String filter = userSearchFilter(user);
         DirContext context = null;
         NamingEnumeration<SearchResult> results = null;
         try {
@@ -89,6 +89,12 @@ public class LdapUserAuthenticator implements UserAuthenticator {
         return environment;
     }
 
+    private String userSearchFilter(String user) {
+        String template = config.userSearchFilter();
+        int placeholder = template.indexOf("{0}");
+        return template.substring(0, placeholder) + escapeFilterValue(user) + template.substring(placeholder + 3);
+    }
+
     static String escapeFilterValue(String value) {
         StringBuilder escaped = new StringBuilder(value.length());
         for (int i = 0; i < value.length(); i++) {
@@ -105,22 +111,22 @@ public class LdapUserAuthenticator implements UserAuthenticator {
         return escaped.toString();
     }
 
-    private static void close(DirContext context) throws AuthenticationException {
+    private static void close(DirContext context) {
         if (context != null) {
             try {
                 context.close();
             } catch (NamingException e) {
-                throw new AuthenticationException("Unable to close LDAP context", e);
+                // Nothing useful can be returned to the SOAP caller from cleanup failures.
             }
         }
     }
 
-    private static void close(NamingEnumeration<SearchResult> results) throws AuthenticationException {
+    private static void close(NamingEnumeration<SearchResult> results) {
         if (results != null) {
             try {
                 results.close();
             } catch (NamingException e) {
-                throw new AuthenticationException("Unable to close LDAP search results", e);
+                // Nothing useful can be returned to the SOAP caller from cleanup failures.
             }
         }
     }

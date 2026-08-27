@@ -10,11 +10,11 @@ record LdapConfig(
 
     static LdapConfig fromEnvironment() {
         return new LdapConfig(
-                setting("LDAP_URL", "ldap.url", null),
-                setting("LDAP_BASE_DN", "ldap.baseDn", null),
-                setting("LDAP_USER_SEARCH_FILTER", "ldap.userSearchFilter", DEFAULT_USER_SEARCH_FILTER),
-                setting("LDAP_BIND_DN", "ldap.bindDn", null),
-                setting("LDAP_BIND_PASSWORD", "ldap.bindPassword", null));
+                Settings.setting("LDAP_URL", "ldap.url", null),
+                Settings.setting("LDAP_BASE_DN", "ldap.baseDn", null),
+                Settings.setting("LDAP_USER_SEARCH_FILTER", "ldap.userSearchFilter", DEFAULT_USER_SEARCH_FILTER),
+                Settings.setting("LDAP_BIND_DN", "ldap.bindDn", null),
+                Settings.setting("LDAP_BIND_PASSWORD", "ldap.bindPassword", null));
     }
 
     void validate() throws AuthenticationException {
@@ -24,20 +24,18 @@ record LdapConfig(
         if (baseDn == null || baseDn.isBlank()) {
             throw new AuthenticationException("LDAP_BASE_DN or ldap.baseDn must be configured");
         }
-        if (userSearchFilter == null || userSearchFilter.isBlank() || !userSearchFilter.contains("{0}")) {
-            throw new AuthenticationException("LDAP user search filter must contain {0}");
+        if (userSearchFilter == null || userSearchFilter.isBlank() || placeholderCount(userSearchFilter) != 1) {
+            throw new AuthenticationException("LDAP user search filter must contain exactly one {0}");
         }
     }
 
-    private static String setting(String environmentName, String propertyName, String defaultValue) {
-        String propertyValue = System.getProperty(propertyName);
-        if (propertyValue != null && !propertyValue.isBlank()) {
-            return propertyValue;
+    private static int placeholderCount(String value) {
+        int count = 0;
+        int index = value.indexOf("{0}");
+        while (index >= 0) {
+            count++;
+            index = value.indexOf("{0}", index + 3);
         }
-        String environmentValue = System.getenv(environmentName);
-        if (environmentValue != null && !environmentValue.isBlank()) {
-            return environmentValue;
-        }
-        return defaultValue;
+        return count;
     }
 }
