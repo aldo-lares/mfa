@@ -93,9 +93,15 @@ public class LdapUserAuthenticator implements UserAuthenticator {
         return environment;
     }
 
-    private String userSearchFilter(String user) {
+    private String userSearchFilter(String user) throws AuthenticationException {
         String template = config.userSearchFilter();
+        if (template == null) {
+            throw new AuthenticationException("LDAP user search filter must contain exactly one {0}");
+        }
         int placeholder = template.indexOf("{0}");
+        if (placeholder < 0 || template.indexOf("{0}", placeholder + 3) >= 0) {
+            throw new AuthenticationException("LDAP user search filter must contain exactly one {0}");
+        }
         return template.substring(0, placeholder) + escapeFilterValue(user) + template.substring(placeholder + 3);
     }
 
