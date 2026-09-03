@@ -32,10 +32,8 @@ class AuthenticationServiceTest {
     }
 
     @Test
-    void routesLocalUserToLdap() throws AuthenticationException {
-        AuthenticationService service = new AuthenticationService(
-                (user, password) -> true,
-                (user, password) -> false);
+    void identifiesLdapAsAuthenticationProvider() throws AuthenticationException {
+        AuthenticationService service = new AuthenticationService((user, password) -> true);
 
         AuthenticationResult result = service.authenticate("alice", "password");
 
@@ -43,15 +41,4 @@ class AuthenticationServiceTest {
         assertEquals("LDAP", result.getProvider());
     }
 
-    @Test
-    void routesEntraDomainUserToEntra() throws AuthenticationException {
-        AuthenticationService service = new AuthenticationService(
-                (user, password) -> false,
-                (user, password) -> true);
-
-        AuthenticationResult result = service.authenticate("alice@MngEnv229286.onmicrosoft.com", "password");
-
-        assertTrue(result.isAuthenticated());
-        assertEquals("ENTRA", result.getProvider());
-    }
 }

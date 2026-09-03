@@ -40,6 +40,10 @@
     button { width: 100%; margin-top: 2rem; padding: 1rem; border: 0; color: #fffdf8; background: var(--accent); cursor: pointer; font: 700 0.82rem Arial, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
     button:hover { background: var(--accent-dark); }
     button:disabled { opacity: 0.6; cursor: wait; }
+    .entra { display: block; width: 100%; margin-top: 1rem; padding: 1rem; border: 1px solid var(--ink); color: var(--ink); background: transparent; text-align: center; text-decoration: none; font: 700 0.82rem Arial, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+    .entra:hover { color: #fffdf8; background: var(--ink); }
+    .divider { display: flex; align-items: center; gap: 0.8rem; margin-top: 1.5rem; color: var(--muted); font: 0.75rem Arial, sans-serif; text-transform: uppercase; }
+    .divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
     .message { min-height: 1.4rem; margin-top: 1rem; color: var(--accent-dark); font: 0.9rem/1.4 Arial, sans-serif; }
     .profile { display: none; }
     .profile.visible { display: block; }
@@ -68,7 +72,7 @@
       <div class="card">
         <div id="login-view">
           <h2>Iniciar sesión</h2>
-          <p>Usa tus credenciales del directorio LDAP.</p>
+          <p>Usa tu directorio local o continúa con tu cuenta corporativa.</p>
           <form id="login-form">
             <label for="user">Usuario</label>
             <input id="user" name="user" autocomplete="username" required>
@@ -77,6 +81,8 @@
             <button id="submit" type="submit">Entrar</button>
             <div class="message" id="message" role="alert"></div>
           </form>
+          <div class="divider">o</div>
+          <a class="entra" href="/auth/entra/login">Continuar con Microsoft</a>
         </div>
         <div id="profile-view" class="profile">
           <div class="profile-header">
@@ -99,6 +105,14 @@
     const message = document.querySelector('#message');
     const loginView = document.querySelector('#login-view');
     const profileView = document.querySelector('#profile-view');
+    function showProfile(user, provider, name = user) {
+      document.querySelector('#avatar').textContent = (name || user).charAt(0).toUpperCase();
+      document.querySelector('#profile-name').textContent = `Hola, ${name || user}`;
+      document.querySelector('#profile-user').textContent = user;
+      document.querySelector('#profile-provider').textContent = provider;
+      loginView.style.display = 'none';
+      profileView.classList.add('visible');
+    }
     form.addEventListener('submit', async event => {
       event.preventDefault();
       submit.disabled = true;
@@ -110,16 +124,20 @@
         const result = await response.json();
         if (!response.ok) throw new Error(result.message);
         if (!result.authenticated) throw new Error('Usuario o contraseña incorrectos.');
-        document.querySelector('#avatar').textContent = user.charAt(0).toUpperCase();
-        document.querySelector('#profile-name').textContent = `Hola, ${user}`;
-        document.querySelector('#profile-user').textContent = user;
-        document.querySelector('#profile-provider').textContent = result.provider;
-        loginView.style.display = 'none';
-        profileView.classList.add('visible');
+        showProfile(user, result.provider);
       } catch (error) { message.textContent = error.message; }
       finally { submit.disabled = false; }
     });
-    document.querySelector('#logout').addEventListener('click', () => { profileView.classList.remove('visible'); loginView.style.display = ''; form.reset(); message.textContent = ''; });
+    document.querySelector('#logout').addEventListener('click', async () => {
+      await fetch('/auth/logout', { method: 'POST' });
+      profileView.classList.remove('visible');
+      loginView.style.display = '';
+      form.reset();
+      message.textContent = '';
+    });
+    fetch('/api/me').then(response => response.ok ? response.json() : null).then(user => {
+      if (user?.authenticated) showProfile(user.username, user.provider, user.name);
+    });
   </script>
 </body>
 </html>

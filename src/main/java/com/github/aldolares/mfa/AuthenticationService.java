@@ -8,39 +8,21 @@ import java.util.Objects;
 
 @WebService(serviceName = "AuthenticationService", targetNamespace = "http://mfa.aldolares.github.com/")
 public class AuthenticationService {
-    private static final String DEFAULT_ENTRA_DOMAIN = "MngEnv229286.onmicrosoft.com";
     private final UserAuthenticator ldapAuthenticator;
-    private final UserAuthenticator entraAuthenticator;
 
     public AuthenticationService() throws AuthenticationException {
-        this(defaultLdapAuthenticator(), defaultEntraAuthenticator());
+        this(defaultLdapAuthenticator());
     }
 
     AuthenticationService(UserAuthenticator authenticator) {
-        this(authenticator, null);
-    }
-
-    AuthenticationService(UserAuthenticator ldapAuthenticator, UserAuthenticator entraAuthenticator) {
-        this.ldapAuthenticator = Objects.requireNonNull(ldapAuthenticator);
-        this.entraAuthenticator = entraAuthenticator;
+        this.ldapAuthenticator = Objects.requireNonNull(authenticator);
     }
 
     @WebMethod
     public AuthenticationResult authenticate(
             @WebParam(name = "user") String user,
             @WebParam(name = "password", mode = WebParam.Mode.IN) String password) throws AuthenticationException {
-        boolean entraUser = isEntraUser(user);
-        UserAuthenticator selectedAuthenticator = entraUser ? entraAuthenticator : ldapAuthenticator;
-        String provider = entraUser ? "ENTRA" : "LDAP";
-        if (selectedAuthenticator == null) {
-            throw new AuthenticationException("Entra authentication is not configured");
-        }
-        return new AuthenticationResult(selectedAuthenticator.authenticate(user, password), user, provider);
-    }
-
-    static boolean isEntraUser(String user) {
-        String domain = Settings.setting("ENTRA_PRIMARY_DOMAIN", "entra.primaryDomain", DEFAULT_ENTRA_DOMAIN);
-        return user != null && user.toLowerCase().endsWith("@" + domain.toLowerCase());
+        return new AuthenticationResult(ldapAuthenticator.authenticate(user, password), user, "LDAP");
     }
 
     private static UserAuthenticator defaultLdapAuthenticator() throws AuthenticationException {
@@ -49,9 +31,4 @@ public class AuthenticationService {
         return new LdapUserAuthenticator(config);
     }
 
-    private static UserAuthenticator defaultEntraAuthenticator() throws AuthenticationException {
-        EntraConfig config = EntraConfig.fromEnvironment();
-        config.validate();
-        return new EntraUserAuthenticator(config);
-    }
 }

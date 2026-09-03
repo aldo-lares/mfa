@@ -27,14 +27,11 @@ services:
     build:
       context: .
     environment:
-      ENTRA_PRIMARY_DOMAIN: ${ENTRA_PRIMARY_DOMAIN:-MngEnv229286.onmicrosoft.com}
       LDAP_URL: ldap://ldap:389
       LDAP_BASE_DN: ou=people,dc=example,dc=org
       LDAP_BIND_DN: cn=admin,dc=example,dc=org
       LDAP_BIND_PASSWORD: admin
       SERVICE_ADDRESS: http://0.0.0.0:8080/auth
-      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
-      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-}
     depends_on:
       ldap-init:
         condition: service_completed_successfully
@@ -46,6 +43,11 @@ services:
       context: ./frontend
     environment:
       SOAP_URL: http://backend:8080/auth
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-704c387d-9d76-4614-8071-ec85c545106b}
+      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-1870159c-68b8-4797-aa60-196841d39d07}
+      ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-}
+      ENTRA_REDIRECT_URI: ${ENTRA_REDIRECT_URI:-http://localhost:3000/auth/callback}
+      SESSION_SECRET: ${SESSION_SECRET:-}
     depends_on:
       - backend
     ports:
