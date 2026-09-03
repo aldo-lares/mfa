@@ -10,6 +10,7 @@ import javax.naming.directory.SearchResult;
 import java.util.Hashtable;
 
 public class LdapUserAuthenticator implements UserAuthenticator {
+    private static final System.Logger LOG = System.getLogger(LdapUserAuthenticator.class.getName());
     private final LdapConfig config;
 
     public LdapUserAuthenticator(LdapConfig config) {
@@ -19,15 +20,21 @@ public class LdapUserAuthenticator implements UserAuthenticator {
     @Override
     public boolean authenticate(String user, String password) throws AuthenticationException {
         if (user == null || user.isBlank() || password == null || password.isBlank()) {
+            LOG.log(System.Logger.Level.WARNING, "LDAP authentication rejected blank credentials");
             return false;
         }
 
         config.validate();
+        LOG.log(System.Logger.Level.INFO, "Starting LDAP authentication for user {0}", safeUser(user));
         String userDn = findUserDn(user);
         if (userDn == null) {
+            LOG.log(System.Logger.Level.WARNING, "LDAP user not found: {0}", safeUser(user));
             return false;
         }
-        return bindAsUser(userDn, password);
+        boolean authenticated = bindAsUser(userDn, password);
+        LOG.log(authenticated ? System.Logger.Level.INFO : System.Logger.Level.WARNING,
+                "LDAP authentication {0} for user {1}", authenticated ? "succeeded" : "failed", safeUser(user));
+        return authenticated;
     }
 
     private String findUserDn(String user) throws AuthenticationException {
@@ -50,6 +57,7 @@ public class LdapUserAuthenticator implements UserAuthenticator {
             }
             return result.getNameInNamespace();
         } catch (NamingException e) {
+            LOG.log(System.Logger.Level.ERROR, "LDAP search failed for user " + safeUser(user), e);
             throw new AuthenticationException("Unable to search LDAP directory", e);
         } finally {
             close(results);
@@ -68,8 +76,10 @@ public class LdapUserAuthenticator implements UserAuthenticator {
             context = new InitialDirContext(environment);
             return true;
         } catch (javax.naming.AuthenticationException e) {
+            LOG.log(System.Logger.Level.WARNING, "LDAP bind rejected for user DN {0}", userDn);
             return false;
         } catch (NamingException e) {
+            LOG.log(System.Logger.Level.ERROR, "LDAP bind failed for user DN " + userDn, e);
             throw new AuthenticationException("Unable to bind to LDAP directory", e);
         } finally {
             close(context);
@@ -139,5 +149,9 @@ public class LdapUserAuthenticator implements UserAuthenticator {
                 // Nothing useful can be returned to the SOAP caller from cleanup failures.
             }
         }
+    }
+
+    private static String safeUser(String user) {
+        return user.length() <= 2 ? "***" : user.substring(0, 2) + "***";
     }
 }

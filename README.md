@@ -42,6 +42,17 @@ docker compose up --build
 
 The current Compose setup starts OpenLDAP, the Java SOAP backend, and a simple web frontend. Open the frontend at `http://localhost:3000`; it validates credentials through the backend and shows a basic profile screen. The backend WSDL is available at `http://localhost:8080/auth?wsdl`. The development LDAP contains `alice` with password `password`, so the credentials can be used for an end-to-end smoke test. These credentials and the exposed LDAP port are for local development only.
 
+The authentication provider is selected by the login identifier: a user ending in `@MngEnv229286.onmicrosoft.com` is sent to Entra ID, and other identifiers such as `alice` are sent to LDAP. The domain can be changed with `ENTRA_PRIMARY_DOMAIN`. To use Entra ID with ROPC, configure a tenant and a public-client application registration, then start Compose with:
+
+```powershell
+$env:ENTRA_PRIMARY_DOMAIN = "MngEnv229286.onmicrosoft.com"
+$env:ENTRA_TENANT_ID = "your-tenant-id"
+$env:ENTRA_CLIENT_ID = "your-public-client-id"
+docker compose up --build
+```
+
+ROPC requires the app registration to allow public client flows. It is incompatible with many MFA, federation, and Conditional Access scenarios; use a redirect-based flow for production workloads requiring those controls. The SOAP result includes the authenticated user and provider (`LDAP` or `ENTRA`).
+
 Stop the environment with:
 
 ```powershell

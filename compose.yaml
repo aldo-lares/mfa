@@ -27,11 +27,14 @@ services:
     build:
       context: .
     environment:
+      ENTRA_PRIMARY_DOMAIN: ${ENTRA_PRIMARY_DOMAIN:-MngEnv229286.onmicrosoft.com}
       LDAP_URL: ldap://ldap:389
       LDAP_BASE_DN: ou=people,dc=example,dc=org
       LDAP_BIND_DN: cn=admin,dc=example,dc=org
       LDAP_BIND_PASSWORD: admin
       SERVICE_ADDRESS: http://0.0.0.0:8080/auth
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
+      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-}
     depends_on:
       ldap-init:
         condition: service_completed_successfully

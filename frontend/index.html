@@ -85,7 +85,7 @@
           </div>
           <div class="details">
             <div class="detail"><span>Usuario</span><strong id="profile-user"></strong></div>
-            <div class="detail"><span>Directorio</span><strong>LDAP corporativo</strong></div>
+            <div class="detail"><span>Autenticado contra</span><strong id="profile-provider"></strong></div>
             <div class="detail"><span>Estado</span><strong>Activo</strong></div>
           </div>
           <button class="back" id="logout" type="button">Cerrar sesión</button>
@@ -113,6 +113,7 @@
         document.querySelector('#avatar').textContent = user.charAt(0).toUpperCase();
         document.querySelector('#profile-name').textContent = `Hola, ${user}`;
         document.querySelector('#profile-user').textContent = user;
+        document.querySelector('#profile-provider').textContent = result.provider;
         loginView.style.display = 'none';
         profileView.classList.add('visible');
       } catch (error) { message.textContent = error.message; }
