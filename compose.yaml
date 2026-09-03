@@ -5,9 +5,9 @@ services:
       LDAP_ORGANISATION: Example
       LDAP_DOMAIN: example.org
       LDAP_ADMIN_PASSWORD: admin
-      LDAP_SEED_INTERNAL_LDIF_PATH: /container/service/slapd/assets/config/bootstrap/ldif/custom
+      LDAP_SEED_INTERNAL_LDIF_PATH: /tmp/ldap-bootstrap
     volumes:
-      - ./docker/ldap/bootstrap:/container/service/slapd/assets/config/bootstrap/ldif/custom:ro
+      - ./docker/ldap/bootstrap:/tmp/ldap-bootstrap:ro
     ports:
       - "389:389"
     healthcheck:
@@ -30,3 +30,13 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      SOAP_URL: http://backend:8080/auth
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
