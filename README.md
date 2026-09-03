@@ -31,3 +31,25 @@ mvn compile exec:java -Dexec.mainClass=com.github.aldolares.mfa.AuthenticationSe
 ```
 
 The WSDL is available at `http://localhost:8080/auth?wsdl`. The SOAP operation is `authenticate(user, password)` and returns `true` only when the user exists in LDAP and the supplied password can bind as that user. Invalid users or passwords return `false`; LDAP configuration or infrastructure failures are returned as SOAP faults.
+
+## Start the local solution
+
+When the solution includes the LDAP container and additional services, use Docker Compose as the single local entry point:
+
+```powershell
+docker compose up --build
+```
+
+The current Compose setup starts OpenLDAP and the Java SOAP backend. The backend WSDL is available at `http://localhost:8080/auth?wsdl`. The development LDAP contains `alice` with password `password`, so the credentials can be used for an end-to-end smoke test. These credentials and the exposed LDAP port are for local development only.
+
+Stop the environment with:
+
+```powershell
+docker compose down
+```
+
+To reset the LDAP data after changing the bootstrap LDIF, remove the containers and volumes used by the Compose project before starting it again:
+
+```powershell
+docker compose down --volumes
+```
