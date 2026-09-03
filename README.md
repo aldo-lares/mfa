@@ -42,17 +42,24 @@ docker compose up --build
 
 The current Compose setup starts OpenLDAP, the Java SOAP backend, and a simple web frontend. Open the frontend at `http://localhost:3000`; it validates credentials through the backend and shows a basic profile screen. The backend WSDL is available at `http://localhost:8080/auth?wsdl`. The development LDAP contains `alice` with password `password`, so the credentials can be used for an end-to-end smoke test. These credentials and the exposed LDAP port are for local development only.
 
-LDAP authentication continues through the SOAP service. Microsoft Entra authentication uses the interactive Authorization Code flow with PKCE in the frontend, allowing Conditional Access to require MFA. The application never receives the user's Entra password or MFA code.
+LDAP authentication continues temporarily through the SOAP service. Microsoft Entra authentication uses the interactive Authorization Code flow with PKCE in the frontend, allowing Conditional Access to require MFA. The application never receives the user's Entra password or MFA code.
 
-Configure the App Registration with the Web redirect URI `http://localhost:3000/auth/callback`, then create a local `.env` based on `.env.example`. Put the client secret only in `.env`; the file is ignored by Git.
+The frontend supports two identity boundaries:
+
+- `workforce` uses the organization's Microsoft Entra workforce tenant for employees.
+- `customer` uses a Microsoft Entra External ID external tenant for customers.
+
+Create a separate app registration in each tenant. Configure the Web redirect URIs `http://localhost:3000/auth/workforce/callback` and `http://localhost:3000/auth/customer/callback`, respectively. The External ID authority must be the root tenant URL `https://<tenant-subdomain>.ciamlogin.com/`; don't append the tenant ID or primary domain. Create a local `.env` based on `.env.example`; put development secrets only in `.env`, which is ignored by Git.
 
 ```powershell
 Copy-Item .env.example .env
-# Edit .env locally and replace ENTRA_CLIENT_SECRET and SESSION_SECRET.
+# Edit .env locally and replace the tenant, client, client-secret, authority, and session values.
 docker compose up --build
 ```
 
-Select **Continue with Microsoft** to sign in through Entra. MFA must be required through an Entra Conditional Access policy assigned to this application. For production, use HTTPS, a certificate or managed secret store, and a persistent session store instead of the default in-memory development store.
+Select **Employee access** or **Customer access** to sign in through the corresponding tenant. MFA must be required through a Conditional Access policy assigned to each application. User authorization must be keyed by the immutable `issuer` and `subject` claims, not by email address or domain. For production, use HTTPS, a certificate or managed secret store, and a persistent session store instead of the default in-memory development store.
+
+The LDAP form remains available only as a migration bridge. Do not treat it as MFA-protected, and do not leave it enabled after users have moved to Entra because it would bypass Conditional Access.
 
 Stop the environment with:
 

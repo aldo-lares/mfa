@@ -1,0 +1,52 @@
+const assert = require('node:assert/strict');
+const { after, before, test } = require('node:test');
+
+process.env.SESSION_SECRET = 'test-session-secret-with-at-least-32-characters';
+delete process.env.ENTRA_CUSTOMER_TENANT_ID;
+delete process.env.ENTRA_CUSTOMER_CLIENT_ID;
+delete process.env.ENTRA_CUSTOMER_CLIENT_SECRET;
+delete process.env.ENTRA_CUSTOMER_AUTHORITY;
+
+const { app, validateAuthority } = require('../server');
+
+let baseUrl;
+let server;
+
+before(async () => {
+  server = app.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  baseUrl = `http://127.0.0.1:${server.address().port}`;
+});
+
+after(async () => {
+  await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+});
+
+test('legacy Entra login routes to the workforce provider', async () => {
+  const response = await fetch(`${baseUrl}/auth/entra/login`, { redirect: 'manual' });
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get('location'), '/auth/workforce/login');
+});
+
+test('legacy callback preserves query parameters', async () => {
+  const response = await fetch(`${baseUrl}/auth/callback?code=abc&state=def`, { redirect: 'manual' });
+
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get('location'), '/auth/workforce/callback?code=abc&state=def');
+});
+
+test('an unconfigured customer provider fails closed', async () => {
+  const response = await fetch(`${baseUrl}/auth/customer/login`);
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { message: 'La autenticación customer no está configurada.' });
+});
+
+test('External ID authority accepts only the ciamlogin tenant root', () => {
+  assert.equal(validateAuthority('https://contoso.ciamlogin.com/'), null);
+  assert.match(
+    validateAuthority('https://contoso.ciamlogin.com/tenant-id'),
+    /root ciamlogin\.com tenant URL/
+  );
+});

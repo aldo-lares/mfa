@@ -9,23 +9,26 @@ const crypto = require('node:crypto');
 const session = require('express-session');
 const { ConfidentialClientApplication, CryptoProvider } = require('@azure/msal-node');
 
-const redirectUri = process.env.ENTRA_REDIRECT_URI || `http://localhost:${port}/auth/callback`;
-const tenantId = process.env.ENTRA_TENANT_ID;
-const clientId = process.env.ENTRA_CLIENT_ID;
-const clientSecret = process.env.ENTRA_CLIENT_SECRET;
 const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 const scopes = ['openid', 'profile', 'email'];
 const cryptoProvider = new CryptoProvider();
 
-const msalClient = tenantId && clientId && clientSecret
-  ? new ConfidentialClientApplication({
-      auth: {
-        clientId,
-        authority: `https://login.microsoftonline.com/${tenantId}`,
-        clientSecret
-      }
-    })
-  : null;
+const authProviders = new Map([
+  createAuthProvider('workforce', {
+    tenantId: process.env.ENTRA_WORKFORCE_TENANT_ID || process.env.ENTRA_TENANT_ID,
+    clientId: process.env.ENTRA_WORKFORCE_CLIENT_ID || process.env.ENTRA_CLIENT_ID,
+    clientSecret: process.env.ENTRA_WORKFORCE_CLIENT_SECRET || process.env.ENTRA_CLIENT_SECRET,
+    authority: process.env.ENTRA_WORKFORCE_AUTHORITY,
+    redirectUri: process.env.ENTRA_WORKFORCE_REDIRECT_URI || process.env.ENTRA_REDIRECT_URI || `http://localhost:${port}/auth/workforce/callback`
+  }),
+  createAuthProvider('customer', {
+    tenantId: process.env.ENTRA_CUSTOMER_TENANT_ID,
+    clientId: process.env.ENTRA_CUSTOMER_CLIENT_ID,
+    clientSecret: process.env.ENTRA_CUSTOMER_CLIENT_SECRET,
+    authority: process.env.ENTRA_CUSTOMER_AUTHORITY,
+    redirectUri: process.env.ENTRA_CUSTOMER_REDIRECT_URI || `http://localhost:${port}/auth/customer/callback`
+  })
+]);
 
 const app = express();
 app.disable('x-powered-by');
@@ -43,10 +46,47 @@ app.use(session({
   }
 }));
 
-function requireMsal(response) {
-  if (msalClient) return true;
-  response.status(503).json({ message: 'La autenticación con Microsoft Entra no está configurada.' });
-  return false;
+function createAuthProvider(name, config) {
+  const authority = config.authority || (config.tenantId ? `https://login.microsoftonline.com/${config.tenantId}` : null);
+  const configurationError = validateAuthority(authority);
+  const complete = config.clientId && config.clientSecret && authority && !configurationError;
+  const knownAuthorities = authority && new URL(authority).hostname.endsWith('.ciamlogin.com')
+    ? [new URL(authority).hostname]
+    : undefined;
+  const client = complete
+    ? new ConfidentialClientApplication({
+        auth: {
+          clientId: config.clientId,
+          authority,
+          clientSecret: config.clientSecret,
+          knownAuthorities
+        }
+      })
+    : null;
+
+  return [name, { ...config, authority, client, configurationError }];
+}
+
+function validateAuthority(authority) {
+  if (!authority) return null;
+  let parsed;
+  try {
+    parsed = new URL(authority);
+  } catch {
+    return 'Authority must be a valid URL.';
+  }
+  if (parsed.protocol !== 'https:') return 'Authority must use HTTPS.';
+  if (parsed.hostname.endsWith('.ciamlogin.com') && parsed.pathname !== '/') {
+    return 'External ID authority must use the root ciamlogin.com tenant URL.';
+  }
+  return null;
+}
+
+function requireAuthProvider(providerName, response) {
+  const provider = authProviders.get(providerName);
+  if (provider?.client) return provider;
+  response.status(503).json({ message: `La autenticación ${providerName} no está configurada.` });
+  return null;
 }
 
 app.get('/', (_request, response) => {
@@ -68,17 +108,27 @@ app.post('/api/authenticate', async (request, response, next) => {
   }
 });
 
-app.get('/auth/entra/login', async (request, response, next) => {
-  if (!requireMsal(response)) return;
+app.get('/auth/entra/login', (_request, response) => {
+  response.redirect('/auth/workforce/login');
+});
+
+app.get('/auth/callback', (request, response) => {
+  const query = new URLSearchParams(request.query).toString();
+  response.redirect(`/auth/workforce/callback${query ? `?${query}` : ''}`);
+});
+
+app.get('/auth/:provider/login', async (request, response, next) => {
+  const provider = requireAuthProvider(request.params.provider, response);
+  if (!provider) return;
   try {
     const { verifier, challenge } = await cryptoProvider.generatePkceCodes();
     const state = crypto.randomBytes(32).toString('hex');
     const nonce = crypto.randomBytes(32).toString('hex');
-    request.session.entraFlow = { verifier, state, nonce };
+    request.session.entraFlow = { verifier, state, nonce, provider: request.params.provider };
 
-    const authUrl = await msalClient.getAuthCodeUrl({
+    const authUrl = await provider.client.getAuthCodeUrl({
       scopes,
-      redirectUri,
+      redirectUri: provider.redirectUri,
       codeChallenge: challenge,
       codeChallengeMethod: 'S256',
       state,
@@ -90,22 +140,27 @@ app.get('/auth/entra/login', async (request, response, next) => {
   }
 });
 
-app.get('/auth/callback', async (request, response, next) => {
-  if (!requireMsal(response)) return;
+app.get('/auth/:provider/callback', async (request, response, next) => {
+  const providerName = request.params.provider;
+  const provider = requireAuthProvider(providerName, response);
+  if (!provider) return;
   const flow = request.session.entraFlow;
-  if (!flow || typeof request.query.code !== 'string' || request.query.state !== flow.state) {
+  if (!flow || flow.provider !== providerName || typeof request.query.code !== 'string' || request.query.state !== flow.state) {
     return response.status(400).send('Respuesta de autenticación inválida o expirada.');
   }
 
   try {
-    const token = await msalClient.acquireTokenByCode({
+    const token = await provider.client.acquireTokenByCode({
       code: request.query.code,
       scopes,
-      redirectUri,
+      redirectUri: provider.redirectUri,
       codeVerifier: flow.verifier
     });
     if (token.idTokenClaims?.nonce !== flow.nonce) {
       return response.status(400).send('La respuesta de autenticación no pudo validarse.');
+    }
+    if (!token.idTokenClaims?.iss || !token.idTokenClaims?.sub) {
+      return response.status(400).send('La identidad autenticada no contiene identificadores estables.');
     }
 
     request.session.regenerate(error => {
@@ -113,7 +168,10 @@ app.get('/auth/callback', async (request, response, next) => {
       request.session.user = {
         name: token.account?.name || token.idTokenClaims?.name || token.account?.username,
         username: token.account?.username || token.idTokenClaims?.preferred_username,
-        provider: 'ENTRA'
+        provider: providerName.toUpperCase(),
+        issuer: token.idTokenClaims?.iss,
+        subject: token.idTokenClaims?.sub,
+        tenant: token.idTokenClaims?.tid
       };
       request.session.save(saveError => saveError ? next(saveError) : response.redirect('/'));
     });
@@ -142,11 +200,16 @@ app.use((error, _request, response, _next) => {
   response.status(502).json({ message: 'No se pudo completar la autenticación.' });
 });
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Frontend listening at http://localhost:${port}`);
-  if (!msalClient) console.warn('Microsoft Entra authentication is not configured.');
-  if (!process.env.SESSION_SECRET) console.warn('SESSION_SECRET is not configured; sessions reset on restart.');
-});
+if (require.main === module) {
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`Frontend listening at http://localhost:${port}`);
+    for (const [name, provider] of authProviders) {
+      if (provider.configurationError) console.warn(`Microsoft Entra ${name} configuration is invalid: ${provider.configurationError}`);
+      else if (!provider.client) console.warn(`Microsoft Entra ${name} authentication is not configured.`);
+    }
+    if (!process.env.SESSION_SECRET) console.warn('SESSION_SECRET is not configured; sessions reset on restart.');
+  });
+}
 
 function escapeXml(value) {
   return value
@@ -199,3 +262,5 @@ function valueFromSoap(xml, names) {
   }
   return null;
 }
+
+module.exports = { app, authProviders, validateAuthority };

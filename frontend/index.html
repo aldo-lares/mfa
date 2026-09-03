@@ -40,8 +40,8 @@
     button { width: 100%; margin-top: 2rem; padding: 1rem; border: 0; color: #fffdf8; background: var(--accent); cursor: pointer; font: 700 0.82rem Arial, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
     button:hover { background: var(--accent-dark); }
     button:disabled { opacity: 0.6; cursor: wait; }
-    .entra { display: block; width: 100%; margin-top: 1rem; padding: 1rem; border: 1px solid var(--ink); color: var(--ink); background: transparent; text-align: center; text-decoration: none; font: 700 0.82rem Arial, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
-    .entra:hover { color: #fffdf8; background: var(--ink); }
+    .identity { display: block; width: 100%; margin-top: 1rem; padding: 1rem; border: 1px solid var(--ink); color: var(--ink); background: transparent; text-align: center; text-decoration: none; font: 700 0.82rem Arial, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+    .identity:hover { color: #fffdf8; background: var(--ink); }
     .divider { display: flex; align-items: center; gap: 0.8rem; margin-top: 1.5rem; color: var(--muted); font: 0.75rem Arial, sans-serif; text-transform: uppercase; }
     .divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
     .message { min-height: 1.4rem; margin-top: 1rem; color: var(--accent-dark); font: 0.9rem/1.4 Arial, sans-serif; }
@@ -82,7 +82,8 @@
             <div class="message" id="message" role="alert"></div>
           </form>
           <div class="divider">o</div>
-          <a class="entra" href="/auth/entra/login">Continuar con Microsoft</a>
+          <a class="identity" href="/auth/workforce/login">Acceso para empleados</a>
+          <a class="identity" href="/auth/customer/login">Acceso para clientes</a>
         </div>
         <div id="profile-view" class="profile">
           <div class="profile-header">
