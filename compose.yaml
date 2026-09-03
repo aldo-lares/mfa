@@ -5,9 +5,6 @@ services:
       LDAP_ORGANISATION: Example
       LDAP_DOMAIN: example.org
       LDAP_ADMIN_PASSWORD: admin
-      LDAP_SEED_INTERNAL_LDIF_PATH: /tmp/ldap-bootstrap
-    volumes:
-      - ./docker/ldap/bootstrap:/tmp/ldap-bootstrap:ro
     ports:
       - "389:389"
     healthcheck:
@@ -15,6 +12,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 15
+
+  ldap-init:
+    image: osixia/openldap:1.5.0
+    volumes:
+      - ./docker/ldap/bootstrap/01-users.ldif:/bootstrap/01-users.ldif:ro
+    depends_on:
+      ldap:
+        condition: service_healthy
+    entrypoint: ["ldapadd"]
+    command: ["-H", "ldap://ldap:389", "-x", "-D", "cn=admin,dc=example,dc=org", "-w", "admin", "-f", "/bootstrap/01-users.ldif"]
 
   backend:
     build:
@@ -26,8 +33,8 @@ services:
       LDAP_BIND_PASSWORD: admin
       SERVICE_ADDRESS: http://0.0.0.0:8080/auth
     depends_on:
-      ldap:
-        condition: service_healthy
+      ldap-init:
+        condition: service_completed_successfully
     ports:
       - "8080:8080"
 
