@@ -10,3 +10,84 @@ givenName: Alice
 cn: Alice Example
 mail: alice@example.org
 userPassword: password
+
+dn: uid=bob,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: bob
+sn: Example
+givenName: Bob
+cn: Bob Example
+mail: bob@example.org
+userPassword: password
+
+dn: uid=charlie,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: charlie
+sn: Example
+givenName: Charlie
+cn: Charlie Example
+mail: charlie@example.org
+userPassword: password
+
+dn: uid=diana,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: diana
+sn: Example
+givenName: Diana
+cn: Diana Example
+mail: diana@example.org
+userPassword: password
+
+dn: uid=eve,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: eve
+sn: Example
+givenName: Eve
+cn: Eve Example
+mail: eve@example.org
+userPassword: password
+
+dn: uid=frank,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: frank
+sn: Example
+givenName: Frank
+cn: Frank Example
+mail: frank@example.org
+userPassword: password
+
+dn: uid=grace,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: grace
+sn: Example
+givenName: Grace
+cn: Grace Example
+mail: grace@example.org
+userPassword: password
+
+dn: uid=henry,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: henry
+sn: Example
+givenName: Henry
+cn: Henry Example
+mail: henry@example.org
+userPassword: password
+
+dn: uid=irene,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: irene
+sn: Example
+givenName: Irene
+cn: Irene Example
+mail: irene@example.org
+userPassword: password
+
+dn: uid=jack,ou=people,dc=example,dc=org
+objectClass: inetOrgPerson
+uid: jack
+sn: Example
+givenName: Jack
+cn: Jack Example
+mail: jack@example.org
+userPassword: password
