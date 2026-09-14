@@ -1,0 +1,22 @@
+sequenceDiagram
+    title Acceso de empleados con Microsoft Entra workforce
+    actor Employee as Empleado
+    participant Browser as Navegador
+    participant App as Frontend Express
+    participant Entra as Entra workforce
+
+    Employee->>Browser: Selecciona Acceso para empleados
+    Browser->>App: GET /auth/workforce/login
+    App->>App: Genera state, nonce y PKCE
+    App-->>Browser: Redirección al tenant workforce
+    Browser->>Entra: Solicitud OIDC de autorización
+    Entra->>Employee: Solicita credenciales y controles del tenant
+    Employee->>Entra: Completa autenticación
+    Entra-->>Browser: Código de autorización
+    Browser->>App: GET /auth/workforce/callback
+    App->>Entra: Canjea código con PKCE y secreto
+    Entra-->>App: ID token firmado
+    App->>App: Valida state, nonce, issuer y audience
+    App->>App: Regenera sesión y guarda issuer + subject
+    App-->>Browser: Redirección al portal autenticado
+    Browser-->>Employee: Muestra la sesión

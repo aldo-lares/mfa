@@ -1,0 +1,36 @@
+sequenceDiagram
+    title "Acceso de usuarios externos con Microsoft Entra External ID TEST"
+    actor ExternalUser as Usuario externo
+    participant Browser as Navegador
+    participant App as Frontend Express
+    participant ExternalID as Entra External ID
+    participant CA as Conditional Access
+    participant MFA as Método MFA
+
+    ExternalUser->>Browser: Selecciona Acceso con External ID
+    Browser->>App: GET /auth/external/login
+    alt Estado actual: proveedor sin configurar
+        App-->>Browser: 503 Autenticación no configurada
+        Browser-->>ExternalUser: Acceso no disponible
+        Note over App,CA: El flujo permanece cerrado hasta que un administrador habilite y asigne MFA
+    else Estado futuro: tenant y aplicación configurados
+        App->>App: Genera state, nonce y PKCE
+        App-->>Browser: Redirección al tenant externo
+        Browser->>ExternalID: Solicitud OIDC de autorización
+        ExternalID->>ExternalUser: Ejecuta el user flow de registro o acceso
+        ExternalUser->>ExternalID: Completa el primer factor
+        ExternalID->>CA: Evalúa usuario, aplicación y política
+        CA-->>ExternalID: Requiere MFA
+        ExternalID->>MFA: Inicia Email OTP, SMS o passkey
+        MFA->>ExternalUser: Presenta el desafío
+        ExternalUser->>MFA: Completa el segundo factor
+        MFA-->>ExternalID: MFA completado
+        ExternalID-->>Browser: Código de autorización
+        Browser->>App: GET /auth/external/callback
+        App->>ExternalID: Canjea código con PKCE y secreto
+        ExternalID-->>App: ID token firmado
+        App->>App: Valida state, nonce, issuer y audience
+        App->>App: Regenera sesión y guarda issuer + subject
+        App-->>Browser: Redirección al portal autenticado
+        Browser-->>ExternalUser: Muestra la sesión
+    end

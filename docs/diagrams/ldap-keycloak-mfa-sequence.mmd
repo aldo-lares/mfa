@@ -1,0 +1,38 @@
+sequenceDiagram
+    title Acceso de clientes LDAP con Keycloak y TOTP
+    actor Customer as Cliente
+    participant Browser as Navegador
+    participant App as Frontend Express
+    participant Keycloak as Keycloak
+    participant LDAP as OpenLDAP
+    participant Authenticator as Aplicación TOTP
+
+    Customer->>Browser: Selecciona Acceso para clientes con MFA
+    Browser->>App: GET /auth/customer/login
+    App->>App: Genera state, nonce y PKCE
+    App-->>Browser: Redirección a Keycloak
+    Browser->>Keycloak: Solicitud OIDC de autorización
+    Keycloak->>Customer: Solicita usuario y contraseña LDAP
+    Customer->>Keycloak: Envía credenciales
+    Keycloak->>LDAP: Busca al usuario y prueba bind
+    LDAP-->>Keycloak: Credenciales válidas
+    alt Primer acceso sin TOTP registrado
+        Keycloak->>Customer: Muestra QR de enrolamiento
+        Customer->>Authenticator: Registra el secreto TOTP
+        Authenticator-->>Customer: Genera código temporal
+        Customer->>Keycloak: Confirma el código TOTP
+    else TOTP ya registrado
+        Keycloak->>Customer: Solicita código temporal
+        Customer->>Authenticator: Consulta el código actual
+        Authenticator-->>Customer: Genera código temporal
+        Customer->>Keycloak: Envía el código TOTP
+    end
+    Keycloak->>Keycloak: Verifica TOTP y firma evidencia MFA
+    Keycloak-->>Browser: Código de autorización
+    Browser->>App: GET /auth/customer/callback
+    App->>Keycloak: Canjea código con PKCE
+    Keycloak-->>App: ID token firmado con mfa=true
+    App->>App: Valida token, nonce y evidencia MFA
+    App->>App: Regenera sesión y guarda issuer + subject
+    App-->>Browser: Redirección al portal autenticado
+    Browser-->>Customer: Muestra la sesión
