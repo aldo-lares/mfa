@@ -1,0 +1,161 @@
+:root {
+  --secure-red: #c91f28;
+  --secure-red-dark: #991820;
+  --secure-ink: #20252b;
+  --secure-muted: #626b74;
+  --secure-line: #cdd2d7;
+  --secure-surface: #ffffff;
+}
+
+body,
+.login-pf body,
+.pf-v5-c-login {
+  min-height: 100vh;
+  color: var(--secure-ink);
+  background-color: #e8ebed;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
+    repeating-linear-gradient(135deg, transparent 0 12px, rgba(32, 37, 43, 0.035) 12px 13px);
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
+
+.pf-v5-c-login__container {
+  grid-template-areas: "main";
+  grid-template-columns: minmax(19rem, 25rem);
+  place-content: center;
+  padding: 1.5rem;
+}
+
+.pf-v5-c-login__header {
+  display: none;
+}
+
+.pf-v5-c-login__main {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #b9c0c6;
+  border-radius: 4px;
+  background: var(--secure-surface);
+  box-shadow: 0 18px 45px rgba(32, 37, 43, 0.18);
+}
+
+.pf-v5-c-login__main::before {
+  display: block;
+  height: 5px;
+  background: var(--secure-red);
+  content: "";
+}
+
+.pf-v5-c-login__main-header {
+  padding: 2rem 2rem 1.2rem;
+  border-bottom: 1px solid #e5e7e9;
+  text-align: center;
+}
+
+.pf-v5-c-login__main-header::before {
+  display: grid;
+  width: 3.25rem;
+  height: 3.25rem;
+  margin: 0 auto 1rem;
+  place-items: center;
+  border: 2px solid var(--secure-red);
+  border-radius: 50%;
+  color: var(--secure-red);
+  content: "M";
+  font: 700 1.25rem/1 "Segoe UI", sans-serif;
+}
+
+.pf-v5-c-title,
+#kc-page-title {
+  color: var(--secure-ink);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.pf-v5-c-login__main-body {
+  padding: 1.5rem 2rem 2rem;
+}
+
+.pf-v5-c-form__label-text,
+.pf-v5-c-form__label {
+  color: #424a52;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.pf-v5-c-form-control {
+  min-height: 2.75rem;
+  border-color: var(--secure-line);
+  border-radius: 3px;
+  box-shadow: none;
+}
+
+.pf-v5-c-form-control:focus-within {
+  border-color: var(--secure-red);
+  box-shadow: 0 0 0 1px var(--secure-red);
+}
+
+.pf-v5-c-button.pf-m-primary,
+#kc-login,
+input[type="submit"] {
+  min-height: 2.75rem;
+  border-radius: 3px;
+  background: var(--secure-red);
+  font-weight: 600;
+}
+
+.pf-v5-c-button.pf-m-primary:hover,
+#kc-login:hover,
+input[type="submit"]:hover {
+  background: var(--secure-red-dark);
+}
+
+.pf-v5-c-alert {
+  border-radius: 3px;
+}
+
+#kc-locale,
+#login-select-toggle,
+#login-select-toggle:has(option) {
+  display: none;
+}
+
+.pf-v5-c-form-control:has(> #login-select-toggle),
+.pf-v5-c-login__main-footer-band {
+  display: none;
+}
+
+#kc-content-wrapper > p,
+.instruction,
+.kc-feedback-text {
+  color: var(--secure-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+#kc-totp-settings,
+#kc-totp-supported-apps {
+  padding-left: 1.25rem;
+  color: var(--secure-muted);
+  font-size: 0.87rem;
+}
+
+#kc-totp-secret-key {
+  overflow-wrap: anywhere;
+  color: var(--secure-ink);
+  font-family: Consolas, monospace;
+}
+
+@media (max-width: 480px) {
+  .pf-v5-c-login__container {
+    padding: 0.75rem;
+  }
+
+  .pf-v5-c-login__main-header,
+  .pf-v5-c-login__main-body {
+    padding-right: 1.25rem;
+    padding-left: 1.25rem;
+  }
+}

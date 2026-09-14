@@ -2,12 +2,11 @@ const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
 
 process.env.SESSION_SECRET = 'test-session-secret-with-at-least-32-characters';
-delete process.env.ENTRA_CUSTOMER_TENANT_ID;
-delete process.env.ENTRA_CUSTOMER_CLIENT_ID;
-delete process.env.ENTRA_CUSTOMER_CLIENT_SECRET;
-delete process.env.ENTRA_CUSTOMER_AUTHORITY;
+delete process.env.KEYCLOAK_ISSUER;
+delete process.env.KEYCLOAK_CLIENT_ID;
+delete process.env.KEYCLOAK_CLIENT_SECRET;
 
-const { app, validateAuthority } = require('../server');
+const { app, hasMfaEvidence, validateAuthority } = require('../server');
 
 let baseUrl;
 let server;
@@ -49,4 +48,29 @@ test('External ID authority accepts only the ciamlogin tenant root', () => {
     validateAuthority('https://contoso.ciamlogin.com/tenant-id'),
     /root ciamlogin\.com tenant URL/
   );
+});
+
+test('direct LDAP authentication is blocked to prevent bypassing MFA', async () => {
+  const response = await fetch(`${baseUrl}/api/authenticate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user: 'alice', password: 'password' })
+  });
+
+  assert.equal(response.status, 410);
+  assert.match((await response.json()).message, /LDAP directo fue deshabilitado/);
+});
+
+test('a customer callback without a matching flow is rejected', async () => {
+  const response = await fetch(`${baseUrl}/auth/customer/callback?code=abc&state=def`);
+
+  assert.equal(response.status, 400);
+  assert.match(await response.text(), /inválida o expirada/);
+});
+
+test('MFA evidence accepts OTP AMR or the signed realm policy claim', () => {
+  assert.equal(hasMfaEvidence({ amr: ['pwd', 'otp'] }), true);
+  assert.equal(hasMfaEvidence({ mfa: true }), true);
+  assert.equal(hasMfaEvidence({ amr: ['pwd'] }), false);
+  assert.equal(hasMfaEvidence({ mfa: 'true' }), false);
 });

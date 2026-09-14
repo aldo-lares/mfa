@@ -1,6 +1,6 @@
 # mfa
 
-Basic Java SOAP web service for authenticating a user against an OpenLDAP directory.
+Local identity pilot where Keycloak federates users from OpenLDAP and requires TOTP before issuing an OIDC session to the web application. Microsoft Entra workforce login remains available as a separate employee identity boundary.
 
 ## Build and test
 
@@ -40,26 +40,32 @@ When the solution includes the LDAP container and additional services, use Docke
 docker compose up --build
 ```
 
-The current Compose setup starts OpenLDAP, the Java SOAP backend, and a simple web frontend. Open the frontend at `http://localhost:3000`; it validates credentials through the backend and shows a basic profile screen. The backend WSDL is available at `http://localhost:8080/auth?wsdl`. The development LDAP contains `alice` with password `password`, so the credentials can be used for an end-to-end smoke test. These credentials and the exposed LDAP port are for local development only.
+Compose starts OpenLDAP, PostgreSQL, Keycloak, the legacy Java SOAP backend, and the web frontend:
 
-LDAP authentication continues temporarily through the SOAP service. Microsoft Entra authentication uses the interactive Authorization Code flow with PKCE in the frontend, allowing Conditional Access to require MFA. The application never receives the user's Entra password or MFA code.
+- Frontend: `http://localhost:3000`
+- Keycloak administration: `http://localhost:8081/admin`
+- Backend WSDL: `http://localhost:8080/auth?wsdl`
+
+The development LDAP contains users `alice` through `jack`, all with password `password`. Select **Acceso para clientes con MFA**, sign in with an LDAP account, and scan the QR code with Microsoft Authenticator, Google Authenticator, or another TOTP application. The first login cannot complete until TOTP enrollment succeeds; subsequent logins require both the LDAP password and a current TOTP code.
+
+The customer flow uses the `mfa-secure` Keycloak theme under `docker/keycloak/themes`. It presents a compact VPN-client-style sequence: LDAP username and password first, then a separate one-time-code screen. Keep credential forms in Keycloak when changing this experience; the Express frontend must only initiate and validate the OIDC flow.
+
+Customer authentication uses Authorization Code with PKCE through Keycloak. OpenLDAP remains the source for passwords and profile attributes, while Keycloak stores the second-factor credential and emits the signed identity token. The application never receives the LDAP password or TOTP code. Direct `POST /api/authenticate` access is disabled to prevent bypassing MFA; the SOAP backend remains only as a legacy internal component during migration.
 
 The frontend supports two identity boundaries:
 
 - `workforce` uses the organization's Microsoft Entra workforce tenant for employees.
-- `customer` uses a Microsoft Entra External ID external tenant for customers.
+- `customer` uses the local Keycloak realm backed by OpenLDAP and TOTP.
 
-Create a separate app registration in each tenant. Configure the Web redirect URIs `http://localhost:3000/auth/workforce/callback` and `http://localhost:3000/auth/customer/callback`, respectively. The External ID authority must be the root tenant URL `https://<tenant-subdomain>.ciamlogin.com/`; don't append the tenant ID or primary domain. Create a local `.env` based on `.env.example`; put development secrets only in `.env`, which is ignored by Git.
+Create an app registration for workforce and configure `http://localhost:3000/auth/workforce/callback` as its Web redirect URI. Create a local `.env` based on `.env.example`; put development secrets only in `.env`, which is ignored by Git. The Keycloak values in Compose are development defaults and must be replaced outside local development.
 
 ```powershell
 Copy-Item .env.example .env
-# Edit .env locally and replace the tenant, client, client-secret, authority, and session values.
+# Edit .env locally and replace workforce, Keycloak admin/database, client, and session secrets.
 docker compose up --build
 ```
 
-Select **Employee access** or **Customer access** to sign in through the corresponding tenant. MFA must be required through a Conditional Access policy assigned to each application. User authorization must be keyed by the immutable `issuer` and `subject` claims, not by email address or domain. For production, use HTTPS, a certificate or managed secret store, and a persistent session store instead of the default in-memory development store.
-
-The LDAP form remains available only as a migration bridge. Do not treat it as MFA-protected, and do not leave it enabled after users have moved to Entra because it would bypass Conditional Access.
+User authorization must be keyed by immutable `issuer` and `subject` claims, not by email address or domain. For production, use HTTPS, LDAPS, a managed secret store, an external session store, PostgreSQL backups, and a supported highly available Keycloak deployment. Port 389 and the legacy SOAP endpoint must not be exposed publicly.
 
 Stop the environment with:
 
@@ -67,7 +73,7 @@ Stop the environment with:
 docker compose down
 ```
 
-To reset the LDAP data after changing the bootstrap LDIF, remove the containers and volumes used by the Compose project before starting it again:
+The LDAP initializer is idempotent across normal restarts. To reset LDAP users or all Keycloak enrollments after changing bootstrap configuration, remove Compose volumes before starting again:
 
 ```powershell
 docker compose down --volumes
