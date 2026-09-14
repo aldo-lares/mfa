@@ -59,7 +59,7 @@ function createAuthProvider(name, config) {
           clientId: config.clientId,
           authority,
           clientSecret: config.clientSecret,
-          knownAuthorities
+          ...(knownAuthorities ? { knownAuthorities } : {})
         }
       })
     : null;
