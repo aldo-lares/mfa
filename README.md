@@ -52,12 +52,17 @@ The customer flow uses the `mfa-secure` Keycloak theme under `docker/keycloak/th
 
 Customer authentication uses Authorization Code with PKCE through Keycloak. OpenLDAP remains the source for passwords and profile attributes, while Keycloak stores the second-factor credential and emits the signed identity token. The application never receives the LDAP password or TOTP code. Direct `POST /api/authenticate` access is disabled to prevent bypassing MFA; the SOAP backend remains only as a legacy internal component during migration.
 
-The frontend supports two identity boundaries:
+The frontend supports three identity boundaries:
 
 - `workforce` uses the organization's Microsoft Entra workforce tenant for employees.
 - `customer` uses the local Keycloak realm backed by OpenLDAP and TOTP.
+- `external` uses a Microsoft Entra External ID external tenant for external users.
 
-Create an app registration for workforce and configure `http://localhost:3000/auth/workforce/callback` as its Web redirect URI. Create a local `.env` based on `.env.example`; put development secrets only in `.env`, which is ignored by Git. The Keycloak values in Compose are development defaults and must be replaced outside local development.
+Create separate confidential Web app registrations for workforce and External ID. Register only the exact redirect and post-logout URIs used by each environment: `http://localhost:3000/auth/workforce/callback` and `http://localhost:3000/auth/external/callback` for local development. External ID must use the tenant root authority `https://<tenant-subdomain>.ciamlogin.com/`; do not append a tenant ID or domain. Grant only the OpenID scopes needed by this app (`openid`, `profile`, and `email`) and rotate client secrets before expiration.
+
+External ID must enforce MFA with a Conditional Access policy assigned to the application and its intended external users. Exclude only a separately protected emergency administrator, test the policy in report-only mode, then enable it. The application validates the signed token, issuer, audience, nonce, PKCE response, and immutable `issuer + subject`; it does not authorize by email or attempt to replace Conditional Access by guessing MFA state from optional claims.
+
+Create a local `.env` based on `.env.example`; put development secrets only in `.env`, which is ignored by Git. The Keycloak values in Compose are development defaults and must be replaced outside local development.
 
 ```powershell
 Copy-Item .env.example .env

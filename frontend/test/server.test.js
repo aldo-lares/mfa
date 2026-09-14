@@ -5,8 +5,11 @@ process.env.SESSION_SECRET = 'test-session-secret-with-at-least-32-characters';
 delete process.env.KEYCLOAK_ISSUER;
 delete process.env.KEYCLOAK_CLIENT_ID;
 delete process.env.KEYCLOAK_CLIENT_SECRET;
+delete process.env.ENTRA_EXTERNAL_AUTHORITY;
+delete process.env.ENTRA_EXTERNAL_CLIENT_ID;
+delete process.env.ENTRA_EXTERNAL_CLIENT_SECRET;
 
-const { app, hasMfaEvidence, validateAuthority } = require('../server');
+const { app, createEntraLogoutUrl, hasEntraMfaEvidence, hasMfaEvidence, validateAuthority } = require('../server');
 
 let baseUrl;
 let server;
@@ -73,4 +76,28 @@ test('MFA evidence accepts OTP AMR or the signed realm policy claim', () => {
   assert.equal(hasMfaEvidence({ mfa: true }), true);
   assert.equal(hasMfaEvidence({ amr: ['pwd'] }), false);
   assert.equal(hasMfaEvidence({ mfa: 'true' }), false);
+});
+
+test('an unconfigured External ID provider fails closed', async () => {
+  const response = await fetch(`${baseUrl}/auth/external/login`);
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { message: 'La autenticación external no está configurada.' });
+});
+
+test('External ID records signed MFA or OTP authentication methods when emitted', () => {
+  assert.equal(hasEntraMfaEvidence({ amr: ['pwd', 'mfa'] }), true);
+  assert.equal(hasEntraMfaEvidence({ amr: ['pwd', 'otp'] }), true);
+  assert.equal(hasEntraMfaEvidence({ amr: ['pwd'] }), false);
+});
+
+test('Entra logout uses the issuer tenant and an exact registered return URI', () => {
+  const url = createEntraLogoutUrl(
+    'https://contoso.ciamlogin.com/tenant-id/v2.0',
+    'https://app.example.com/'
+  );
+
+  assert.equal(url.origin, 'https://contoso.ciamlogin.com');
+  assert.equal(url.pathname, '/tenant-id/oauth2/v2.0/logout');
+  assert.equal(url.searchParams.get('post_logout_redirect_uri'), 'https://app.example.com/');
 });

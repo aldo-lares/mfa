@@ -29,7 +29,16 @@ const authProviders = new Map([
     clientId: process.env.ENTRA_WORKFORCE_CLIENT_ID || process.env.ENTRA_CLIENT_ID,
     clientSecret: process.env.ENTRA_WORKFORCE_CLIENT_SECRET || process.env.ENTRA_CLIENT_SECRET,
     authority: process.env.ENTRA_WORKFORCE_AUTHORITY,
-    redirectUri: process.env.ENTRA_WORKFORCE_REDIRECT_URI || process.env.ENTRA_REDIRECT_URI || `http://localhost:${port}/auth/workforce/callback`
+    redirectUri: process.env.ENTRA_WORKFORCE_REDIRECT_URI || process.env.ENTRA_REDIRECT_URI || `http://localhost:${port}/auth/workforce/callback`,
+    postLogoutRedirectUri: process.env.ENTRA_WORKFORCE_POST_LOGOUT_REDIRECT_URI || `http://localhost:${port}/`
+  }),
+  createAuthProvider('external', {
+    authority: process.env.ENTRA_EXTERNAL_AUTHORITY,
+    clientId: process.env.ENTRA_EXTERNAL_CLIENT_ID,
+    clientSecret: process.env.ENTRA_EXTERNAL_CLIENT_SECRET,
+    redirectUri: process.env.ENTRA_EXTERNAL_REDIRECT_URI || `http://localhost:${port}/auth/external/callback`,
+    postLogoutRedirectUri: process.env.ENTRA_EXTERNAL_POST_LOGOUT_REDIRECT_URI || `http://localhost:${port}/`,
+    externalId: true
   })
 ]);
 
@@ -51,7 +60,7 @@ app.use(session({
 
 function createAuthProvider(name, config) {
   const authority = config.authority || (config.tenantId ? `https://login.microsoftonline.com/${config.tenantId}` : null);
-  const configurationError = validateAuthority(authority);
+  const configurationError = validateAuthority(authority) || validateProviderAuthority(authority, config);
   const complete = config.clientId && config.clientSecret && authority && !configurationError;
   const knownAuthorities = authority && new URL(authority).hostname.endsWith('.ciamlogin.com')
     ? [new URL(authority).hostname]
@@ -68,6 +77,13 @@ function createAuthProvider(name, config) {
     : null;
 
   return [name, { ...config, authority, client, configurationError }];
+}
+
+function validateProviderAuthority(authority, config) {
+  if (!authority || !config.externalId) return null;
+  return new URL(authority).hostname.endsWith('.ciamlogin.com')
+    ? null
+    : 'External ID authority must use the tenant ciamlogin.com hostname.';
 }
 
 function validateAuthority(authority) {
@@ -128,6 +144,20 @@ async function getCustomerOidc() {
 function hasMfaEvidence(claims) {
   const methods = Array.isArray(claims?.amr) ? claims.amr : [];
   return methods.includes('otp') || claims?.mfa === true;
+}
+
+function hasEntraMfaEvidence(claims) {
+  const methods = Array.isArray(claims?.amr) ? claims.amr : [];
+  return methods.some(method => ['mfa', 'otp'].includes(String(method).toLowerCase()));
+}
+
+function createEntraLogoutUrl(issuer, postLogoutRedirectUri) {
+  const logoutUrl = new URL(issuer);
+  const tenantPath = logoutUrl.pathname.replace(/\/v2\.0\/?$/i, '').replace(/\/$/, '');
+  logoutUrl.pathname = `${tenantPath}/oauth2/v2.0/logout`;
+  logoutUrl.search = '';
+  logoutUrl.searchParams.set('post_logout_redirect_uri', postLogoutRedirectUri);
+  return logoutUrl;
 }
 
 app.get('/', (_request, response) => {
@@ -258,6 +288,7 @@ app.get('/auth/:provider/callback', async (request, response, next) => {
     if (!token.idTokenClaims?.iss || !token.idTokenClaims?.sub) {
       return response.status(400).send('La identidad autenticada no contiene identificadores estables.');
     }
+    const mfa = hasEntraMfaEvidence(token.idTokenClaims);
 
     request.session.regenerate(error => {
       if (error) return next(error);
@@ -267,7 +298,12 @@ app.get('/auth/:provider/callback', async (request, response, next) => {
         provider: providerName.toUpperCase(),
         issuer: token.idTokenClaims?.iss,
         subject: token.idTokenClaims?.sub,
-        tenant: token.idTokenClaims?.tid
+        tenant: token.idTokenClaims?.tid,
+        mfa
+      };
+      request.session.entraLogout = {
+        issuer: token.idTokenClaims.iss,
+        postLogoutRedirectUri: provider.postLogoutRedirectUri
       };
       request.session.save(saveError => saveError ? next(saveError) : response.redirect('/'));
     });
@@ -285,10 +321,14 @@ app.get('/api/me', (request, response) => {
 
 app.post('/auth/logout', (request, response, next) => {
   const idToken = request.session.oidcIdToken;
+  const entraLogout = request.session.entraLogout;
   request.session.destroy(error => {
     if (error) return next(error);
     response.clearCookie('mfa.sid');
-    if (!idToken || !customerOidc) return response.redirect(303, '/');
+    if (!idToken || !customerOidc) {
+      if (!entraLogout) return response.redirect(303, '/');
+      return response.redirect(303, createEntraLogoutUrl(entraLogout.issuer, entraLogout.postLogoutRedirectUri).href);
+    }
     const endpoint = customerOidc.config.serverMetadata().end_session_endpoint;
     if (!endpoint) return response.redirect(303, '/');
     const logoutUrl = new URL(endpoint);
@@ -367,4 +407,4 @@ function valueFromSoap(xml, names) {
   return null;
 }
 
-module.exports = { app, authProviders, hasMfaEvidence, validateAuthority };
+module.exports = { app, authProviders, createEntraLogoutUrl, hasEntraMfaEvidence, hasMfaEvidence, validateAuthority };
